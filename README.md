@@ -1,19 +1,34 @@
-# FIFA World Cup 2026 Widget Assets
+# FIFA World Cup 2026 Scriptable Widget
 
-This repository hosts transparent PNG avatar assets for a personal Scriptable iOS widget.
+这是一个用于 iOS Scriptable 的 2026 世界杯小组件脚本，仓库内同时包含球队头像素材和 `manifest.json` 资源索引。
 
-## Asset Structure
+## 使用方法
 
-- `avatars/`: 48 teams x 3 emotions, 144 transparent PNG files.
-- `manifest.json`: team groups and raw GitHub URLs for each avatar.
+1. 在 iPhone 上安装 [Scriptable](https://scriptable.app/)。
+2. 将 `2026世界杯.js` 复制到 Scriptable，保存为一个新的脚本。
+3. 在 iOS 桌面添加 Scriptable 小组件。
+4. 编辑小组件，选择刚刚保存的 `2026世界杯.js` 脚本。
+5. 等待脚本自动拉取 `manifest.json` 和 `avatars/` 内的头像资源。
 
-## Emotion Keys
+## 适配说明
 
-- `happy`: team is leading or celebrating.
-- `neutral`: match is tied or the team is frustrated.
-- `sad`: team is losing or discouraged.
+这个小组件最初按照作者的 iPhone Air 桌面尺寸调试。不同 iPhone 机型、系统版本、字体大小或小组件尺寸可能会导致部分元素的位置、间距或比例略有偏差。
 
-## Groups
+如果你的设备显示效果不理想，可以在 `2026世界杯.js` 顶部的 `UI` 配置中自行微调，例如头像大小、比分区域宽高、上下间距、左右偏移等参数。调整后重新运行脚本或刷新桌面小组件即可查看效果。
+
+## 仓库结构
+
+- `2026世界杯.js`: Scriptable 小组件主脚本。
+- `manifest.json`: 球队分组和头像资源索引。
+- `avatars/`: 48 支球队的透明 PNG 头像素材，每队包含 3 种状态。
+
+## 头像状态
+
+- `happy`: 领先或庆祝状态。
+- `neutral`: 平局、常规或胶着状态。
+- `sad`: 落后或失意状态。
+
+## 分组
 
 - A: 墨西哥、南非、韩国、捷克
 - B: 加拿大、波黑、卡塔尔、瑞士
@@ -27,3 +42,7 @@ This repository hosts transparent PNG avatar assets for a personal Scriptable iO
 - J: 阿根廷、奥地利、约旦、阿尔及利亚
 - K: 葡萄牙、乌兹别克斯坦、哥伦比亚、刚果（金）
 - L: 英格兰、加纳、巴拿马、克罗地亚
+
+## 开源协议
+
+本项目使用 MIT License 开源。你可以自由使用、复制、修改和分发本项目代码与资源，但需要保留原始版权声明和许可证声明。
