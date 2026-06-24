@@ -1,6 +1,9 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: brown; icon-glyph: magic;
 const CONFIG = {
   // manifest.json 的远程地址，用于加载各队头像 URL 列表
-  manifestUrl: "https://raw.githubusercontent.com/sugarfaye/FIFA-World-Cup-2026/main/manifest.json",
+  manifestUrl: "https://raw.githubusercontent.com/sugarfaye/FIFA-World-Cup-2026-/main/manifest.json",
   // 本地缓存文件夹名称（存放 manifest 和头像图片）
   cacheFolder: "WorldCup2026WidgetAssets_FIX3",
   // 赛程卡最多显示几场比赛（建议 4，超出会截断）
@@ -67,13 +70,13 @@ const UI = {
   // 客队头像水平偏移（负值左移）
   awayAvatarOffsetX: -10,
   // 头像垂直偏移（负值上移）
-  avatarOffsetY: -10,
+  avatarOffsetY: -1,
 
   // ── 比分块 ────────────────────────────────────────
   // 比分块整体高度
   scoreBlockHeight: 144,
   // 比分面板宽度
-  scorePanelWidth: 110,
+  scorePanelWidth: 50,
   // 比分面板高度
   scorePanelHeight: 42,
   // 比分面板水平内边距
@@ -277,10 +280,15 @@ widget.url = "scriptable:///run?scriptName=" + encodeURIComponent(Script.name())
 
 try {
   const manifest = await loadManifest();
+  // 恢复真实的线上数据拉取逻辑
   const data = config.runsInApp ? await chooseDebugData() : await fetchMatchData();
 
-  if (data.live) {
-    await renderScoreboardCard(widget, manifest, data.live);
+  if (data.live && data.live.length > 0) {
+    if (data.live.length === 1) {
+      await renderScoreboardCard(widget, manifest, data.live[0]);
+    } else {
+      await renderDualScoreboardCard(widget, manifest, data.live);
+    }
   } else {
     renderScheduleCard(widget, data.matches);
   }
@@ -335,44 +343,14 @@ function makeStripedBackground() {
 // ─────────────────────────────────────────────
 
 async function chooseDebugData() {
-  const alert = new Alert();
-  alert.title = "调试预览";
-  alert.addAction("直播：主队领先");
-  alert.addAction("直播：双方打平");
-  alert.addAction("直播：主队落后");
-  alert.addAction("今日总结卡");
-  alert.addAction("赛程预告");
-  alert.addAction("真实 ESPN 数据");
-  alert.addCancelAction("无比赛");
-  const choice = await alert.presentSheet();
-
-  if (choice === 0) {
-    return { live: makeDemoLive("阿根廷", "1", "法国", "0", "75'"), matches: [] };
-  }
-  if (choice === 1) {
-    return { live: makeDemoLive("阿根廷", "1", "法国", "1", "75'"), matches: [] };
-  }
-  if (choice === 2) {
-    return { live: makeDemoLive("阿根廷", "0", "法国", "1", "75'"), matches: [] };
-  }
-  if (choice === 3) {
-    return {
-      live: null,
-      matches: [
-        { homeTeam: "巴西", awayTeam: "摩洛哥", day: "今天", dateText: monthDayLabel(new Date()), time: "20:00", state: "post", homeScore: "2", awayScore: "1" },
-        { homeTeam: "海地", awayTeam: "苏格兰", day: "今天", dateText: monthDayLabel(new Date()), time: "20:00", state: "post", homeScore: "0", awayScore: "3" },
-        { homeTeam: "美国", awayTeam: "巴拉圭", day: "今天", dateText: monthDayLabel(new Date()), time: "23:00", state: "pre" },
-        { homeTeam: "澳大利亚", awayTeam: "土耳其", day: "今天", dateText: monthDayLabel(new Date()), time: "23:00", state: "pre" },
-      ],
-    };
-  }
-  if (choice === 4) {
-    return { live: null, matches: makeStaticUpcoming().slice(0, CONFIG.maxUpcoming) };
-  }
-  if (choice === 5) {
-    return await fetchMatchData();
-  }
-  return { live: null, matches: [] };
+  // 实时调试模式：直接跳过菜单，立刻展示两场比赛的预览！
+  return { 
+    live: [
+      makeDemoLive("阿根廷", "2", "法国", "1", "75'"), 
+      makeDemoLive("巴西", "1", "摩洛哥", "1", "60'")
+    ], 
+    matches: [] 
+  };
 }
 
 function makeDemoLive(homeTeam, homeScore, awayTeam, awayScore, minute) {
@@ -430,7 +408,7 @@ async function fetchMatchData() {
     const res = await new Request(url).loadJSON();
     return parseEspn(res);
   } catch (error) {
-    return { live: null, matches: makeStaticUpcoming().slice(0, CONFIG.maxUpcoming) };
+    return { live: [], matches: makeStaticUpcoming().slice(0, CONFIG.maxUpcoming) };
   }
 }
 
@@ -443,7 +421,7 @@ async function fetchMatchData() {
 
 function parseEspn(res) {
   const matches = [];
-  let live = null;
+  const live = [];
 
   for (const event of res.events || []) {
     const comp = event.competitions && event.competitions[0];
@@ -459,8 +437,8 @@ function parseEspn(res) {
     const state = event.status.type.state;
     const eventDate = new Date(event.date);
 
-    if (state === "in" && !live) {
-      live = {
+    if (state === "in") {
+      live.push({
         homeTeam,
         awayTeam,
         homeScore: String(home.score || "0"),
@@ -468,7 +446,7 @@ function parseEspn(res) {
         minute: displayMinute(event.status),
         homeEvents: scoringEvents(comp, home.team.id),
         awayEvents: scoringEvents(comp, away.team.id),
-      };
+      });
     } else if (state === "post" || state === "pre") {
       matches.push({
         homeTeam,
@@ -627,6 +605,143 @@ async function renderScoreboardCard(w, manifest, match) {
   addScoreBlock(row, match);
   row.addSpacer(UI.avatarScoreGap);
   await addHeroAvatar(row, manifest, match.awayTeam, awayEmotion, "away");
+}
+
+async function renderDualScoreboardCard(w, manifest, liveMatches) {
+  try {
+    w.backgroundImage = makeStripedBackground();
+  } catch (_) {
+    w.backgroundGradient = makeBackground(UI.liveBgTop, UI.liveBgBottom);
+  }
+
+  w.addSpacer(); // 顶部弹性空白，用来把内容往下推居中
+
+  const container = w.addStack();
+  container.layoutHorizontally();
+  container.centerAlignContent();
+
+  const match1 = liveMatches[0];
+  const match2 = liveMatches[1] || liveMatches[0]; // fallback if length 1 somehow hits here
+
+  await renderHalfMatch(container, manifest, match1);
+
+  // （这里原本是竖线，现已移除）
+  container.addSpacer(10); // 可以加一点透明间距代替竖线
+
+  await renderHalfMatch(container, manifest, match2);
+
+  w.addSpacer(); // 底部弹性空白
+}
+
+async function renderHalfMatch(parent, manifest, match) {
+  const col = parent.addStack();
+  col.layoutVertically();
+  col.centerAlignContent();
+  // 左右内边距改小，因为真实屏幕很窄
+  col.setPadding(0, 6, 0, 6);
+
+  // 0. LIVE 徽章 (LIVE Badge)
+  const badgeRow = col.addStack();
+  badgeRow.layoutHorizontally();
+  badgeRow.addSpacer();
+  const badge = badgeRow.addStack();
+  badge.backgroundColor = UI.liveBadge;
+  badge.cornerRadius = 6;
+  badge.setPadding(2, 6, 2, 6); // 比单屏的小一点
+  const badgeText = badge.addText(liveBadgeText(match.minute));
+  badgeText.font = Font.heavySystemFont(9);
+  badgeText.textColor = Color.white();
+  badgeRow.addSpacer();
+
+  col.addSpacer(6); // 徽章和国家名字的间距
+  
+  // 1. 国家名字 (Team Names)
+  const namesRow = col.addStack();
+  namesRow.layoutHorizontally();
+  namesRow.centerAlignContent();
+  namesRow.addSpacer();
+  addCompactTeamName(namesRow, match.homeTeam, UI.homeTeamNameOffsetX);
+  addVsText(namesRow);
+  addCompactTeamName(namesRow, match.awayTeam, UI.awayTeamNameOffsetX);
+  namesRow.addSpacer();
+
+  col.addSpacer(6);
+
+  // 2. 发光比分面板 (Compact Score Panel)
+  const scoreRow = col.addStack();
+  scoreRow.layoutHorizontally();
+  scoreRow.centerAlignContent();
+  scoreRow.addSpacer();
+  
+  // 临时覆盖全局宽度，确保发光背景图也能跟着一起缩小！
+  const origScorePanelWidth = UI.scorePanelWidth;
+  UI.scorePanelWidth = 90; // <-- 如果你想调宽度，修改这里的 90 即可生效！
+
+  const scorePanel = scoreRow.addStack();
+  scorePanel.layoutHorizontally();
+  scorePanel.centerAlignContent();
+  if (UI.scoreGlow) {
+    scorePanel.backgroundImage = makeScorePanelImage();
+  } else {
+    scorePanel.backgroundColor = UI.panel;
+  }
+  scorePanel.cornerRadius = UI.scorePanelRadius;
+  scorePanel.setPadding(UI.scorePanelPadY, UI.scorePanelPadX, UI.scorePanelPadY, UI.scorePanelPadX);
+  scorePanel.size = new Size(UI.scorePanelWidth, UI.scorePanelHeight);
+  
+  addScoreNumber(scorePanel, match.homeScore, scoreColor(Number(match.homeScore), Number(match.awayScore)));
+  scorePanel.addSpacer(8); // 比分数字间距
+  const dash = scorePanel.addText("-");
+  dash.font = Font.heavySystemFont(UI.scoreDashFont);
+  dash.textColor = UI.vs;
+  scorePanel.addSpacer(8);
+  addScoreNumber(scorePanel, match.awayScore, scoreColor(Number(match.awayScore), Number(match.homeScore)));
+  
+  // 恢复全局宽度，不影响单场比赛的样式
+  UI.scorePanelWidth = origScorePanelWidth;
+
+  scoreRow.addSpacer();
+
+  col.addSpacer(8);
+
+  // 3. 球星头像 (Avatars)
+  const avatarsRow = col.addStack();
+  avatarsRow.layoutHorizontally();
+  avatarsRow.centerAlignContent();
+  avatarsRow.addSpacer();
+
+  const hEmotion = scoreEmotion(Number(match.homeScore), Number(match.awayScore));
+  const aEmotion = scoreEmotion(Number(match.awayScore), Number(match.homeScore));
+
+  const origAvatarSize = UI.avatarSize;
+  const origAvatarBox = UI.avatarBox;
+  
+  // 因为一个屏幕要放 4 个头像，尺寸必须大幅缩小
+  UI.avatarSize = 55;
+  UI.avatarBox = 55;
+
+  await addHeroAvatar(avatarsRow, manifest, match.homeTeam, hEmotion, "home");
+  avatarsRow.addSpacer(12); // 头像间距也缩小
+  await addHeroAvatar(avatarsRow, manifest, match.awayTeam, aEmotion, "away");
+
+  UI.avatarSize = origAvatarSize;
+  UI.avatarBox = origAvatarBox;
+
+  avatarsRow.addSpacer();
+
+  col.addSpacer(6); // 头像和更新时间之间的间距
+
+  // 4. 更新时间 (Updated Time)
+  const timeRow = col.addStack();
+  timeRow.layoutHorizontally();
+  timeRow.centerAlignContent();
+  timeRow.addSpacer();
+  const df = new DateFormatter();
+  df.useShortTimeStyle();
+  const updatedText = timeRow.addText("⟳ " + df.string(new Date()));
+  updatedText.font = Font.systemFont(8);
+  updatedText.textColor = new Color("#ffffff", 0.22);
+  timeRow.addSpacer();
 }
 
 function addLiveBadge(w, minute) {
